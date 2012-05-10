@@ -1,0 +1,15 @@
+=============================
+Git command line applicatoins
+=============================
+
+git-restore-timestamp
+---------------------
+
+restore modification timpstamp to last commit time
+
+
+git-create-timestamp-commit
+---------------------------
+
+create first commit command sequence to save object timestamp
+
