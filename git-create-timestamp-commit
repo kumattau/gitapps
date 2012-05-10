@@ -1,0 +1,55 @@
+#!/bin/sh
+
+LANG=C
+
+IFS='
+'
+
+if [ $# -eq 0 ]
+then
+    set .
+fi
+
+LIST=""
+
+while [ 0 -lt $# ]
+do
+    obj=$1
+
+    for sub in `find "${obj}" -print`
+    do
+
+        # check "not" git metadata directory
+        if echo "${sub}" | grep -q -E '(^\.git|/.git/|/.git$)'
+        then
+            continue
+        fi
+
+        if [ ! -d "${sub}" ]
+        then
+
+            # check "not" outside repository
+            if ! git log -- "${sub}" 2>/dev/null 1>&2
+            then
+                continue
+            fi
+
+            if [ `git log -- "${sub}" | wc -c` = 0 ]
+            then
+                modify_time=`stat --format='%Y' "${sub}"`
+                modify_text=`date +'%Y-%m-%d %X' --date=@${modify_time}`
+                LIST="${LIST}\n${modify_text} ${sub}"
+            fi
+        fi
+    done 
+    shift
+done
+
+LIST=`echo ${LIST} | sed '/^$/d' | sort`
+
+for elm in ${LIST}
+do
+    modify_text=`echo ${elm} | awk '{printf("%s %s", $1, $2)}'`
+    target_file=`echo ${elm} | sed "s/^${modify_text}\s//"`
+    echo "git add '${target_file}' && git commit --date='${modify_text}' -m 'timestamp commit'"
+done
