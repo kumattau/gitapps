@@ -1,0 +1,71 @@
+#!/bin/sh
+
+LANG=C
+
+IFS='
+'
+
+if [ $# -eq 0 ]
+then
+    set .
+fi
+
+while [ 0 -lt $# ]
+do
+    obj=$1
+
+    for sub in `find "${obj}" -print`
+    do
+
+        # check "not" git metadata directory
+        if echo "${sub}" | grep -q -E '(^\.git|/.git/|/.git$)'
+        then
+            continue
+        fi
+
+        if [ ! -d "${sub}" ]
+        then
+
+            # check "not" outside repository
+            if ! git log -- "${sub}" 2>/dev/null 1>&2
+            then
+                continue
+            fi
+
+            if [ `git log -- "${sub}" | wc -c` = 0 ]
+            then
+                echo "- ${sub} : this file has not been commited yet"
+                continue
+            fi
+
+            if ! git diff --quiet -- "${sub}" || ! git diff --quiet --staged -- "${sub}"
+            then
+                echo "x ${sub} : this file is modified after last commit"
+                continue
+            fi
+
+            modify_time=`stat --format='%Y' "${sub}"`
+            commit_time=`git log --date=raw --max-count=1 -- "${sub}" | grep ^Date: | awk '{print $2}'`
+
+            modify_text=`date +'%Y-%m-%d %X' --date=@${modify_time}`
+            commit_text=`date +'%Y-%m-%d %X' --date=@${commit_time}`
+            
+            if [ ${modify_time} -eq ${commit_time} ]
+            then
+                echo "- ${sub} : modify and commit is same time ${commit_text}"
+                continue
+            fi
+
+            if [ ${modify_time} -lt ${commit_time} ]
+            then
+                echo "x ${sub} : modify ${modify_text} is older than last commit ${commit_text}"
+                continue
+            fi
+
+            echo "o ${sub} : APPLY ${modify_text} to ${commit_text}"
+            touch --time=modify --date="${commit_text}" "${sub}"
+        fi
+    done 
+    shift
+done
+
